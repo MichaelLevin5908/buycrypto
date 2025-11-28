@@ -6,7 +6,7 @@ A minimal Coinbase Advanced Trade bot that watches the BTC-USD price and places 
 
 1. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install -r constraints.txt
    ```
 
 2. Provide API credentials (View + Trade permissions only):
