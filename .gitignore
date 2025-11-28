@@ -1,3 +1,6 @@
 .env
 cdp_api_key.json
 nohup.out
+*.pyc
+.vscode
+__pycache__
