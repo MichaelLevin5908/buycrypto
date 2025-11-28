@@ -1,6 +1,5 @@
 import json
 import os
-import json
 import time
 import uuid
 from pathlib import Path
@@ -10,11 +9,13 @@ from coinbase.rest import RESTClient
 from dotenv import load_dotenv
 
 # === CONFIGURE THESE ===
-TARGET_PRICE = 90_000.0  # Buy when BTC-USD <= this price
-USD_TO_SPEND = 100.0      # How many USD to spend once
+TARGET_PRICE = 90_000.0  # Buy when BTC-QUOTE <= this price
+USD_TO_SPEND = 100.0      # How many quote-currency units to spend once (now USDC)
 POLL_INTERVAL = 10       # Seconds between price checks
-PRODUCT_ID = "BTC-USD"   # Trading pair
+PRODUCT_ID = "BTC-USDC"   # Trading pair (use BTC-USDC to spend USDC)
+SPEND_CURRENCY = "USDC"   # Currency you will spend (USD or USDC)
 BUY_COOLDOWN = 604800     # Seconds to wait after a buy before checking again (1 week)
+DRY_RUN = False           # Disabled — real orders will be placed
 # ========================
 
 def get_client() -> RESTClient:
@@ -62,6 +63,21 @@ def get_current_price(client: RESTClient, product_id: str) -> float:
     return float(product["price"])
 
 
+def get_balance_by_currency(client: RESTClient, currency: str) -> float:
+    """Return available balance for a given currency (e.g., 'USD' or 'USDC')."""
+    try:
+        resp = client.get_accounts()
+    except Exception:
+        return 0.0
+    for acct in resp.get("accounts", []):
+        if acct.get("currency") == currency:
+            try:
+                return float(acct["available_balance"]["value"])
+            except Exception:
+                return 0.0
+    return 0.0
+
+
 def place_limit_buy(client: RESTClient, product_id: str, limit_price: float) -> Optional[str]:
     """Place a GTC limit buy order that spends roughly USD_TO_SPEND at limit_price."""
 
@@ -70,15 +86,19 @@ def place_limit_buy(client: RESTClient, product_id: str, limit_price: float) -> 
 
     print("\nPlacing limit BUY:")
     print(f"  Product      : {product_id}")
-    print(f"  Limit price  : {limit_price:.2f} USD")
+    print(f"  Limit price  : {limit_price:.2f} {SPEND_CURRENCY}")
     print(f"  Base size    : {base_size:.8f} BTC")
     print(f"  Client order : {client_order_id}")
+
+    if DRY_RUN:
+        print("DRY_RUN enabled — skipping actual order placement.")
+        return "dry-run-order-id"
 
     order = client.limit_order_gtc_buy(
         client_order_id=client_order_id,
         product_id=product_id,
         base_size=f"{base_size:.8f}",  # BTC size
-        limit_price=f"{limit_price:.2f}",  # USD price
+        limit_price=f"{limit_price:.2f}",  # quote price (USDC)
     )
 
     print("\nRaw order response:")
@@ -98,27 +118,32 @@ def main() -> None:
     client = get_client()
 
     print(f"Watching {PRODUCT_ID}...")
-    print(f"Target price: <= {TARGET_PRICE:.2f} USD")
-    print(f"Will spend  : {USD_TO_SPEND:.2f} USD per buy")
+    print(f"Target price: <= {TARGET_PRICE:.2f} {SPEND_CURRENCY}")
+    print(f"Will spend  : {USD_TO_SPEND:.2f} {SPEND_CURRENCY} per buy")
     print(f"Buy cooldown: {BUY_COOLDOWN} seconds\n")
+    print(f"DRY_RUN     : {'ON' if DRY_RUN else 'OFF'}\n")
 
     last_buy_time = 0
 
     while True:
         try:
             price = get_current_price(client, PRODUCT_ID)
-            print(f"Current price: {price:.2f} USD")
+            available = get_balance_by_currency(client, SPEND_CURRENCY)
+            print(f"Current price: {price:.2f} {SPEND_CURRENCY} | Available {SPEND_CURRENCY}: {available:.2f}")
 
-            time_since_last_buy = time.time() - last_buy_time
-            if time_since_last_buy < BUY_COOLDOWN:
-                remaining = BUY_COOLDOWN - time_since_last_buy
-                print(f"On cooldown. Next buy check in {remaining:.0f} seconds.")
-            elif price <= TARGET_PRICE:
-                print("\n🎯 Target hit! Placing buy order...")
-                order_id = place_limit_buy(client, PRODUCT_ID, TARGET_PRICE)
-                if order_id:
-                    last_buy_time = time.time()
-                    print(f"Buy completed. Cooldown started.\n")
+            if available < USD_TO_SPEND:
+                print(f"Insufficient {SPEND_CURRENCY} ({available:.2f}) — need {USD_TO_SPEND:.2f}. Skipping buy.")
+            else:
+                time_since_last_buy = time.time() - last_buy_time
+                if time_since_last_buy < BUY_COOLDOWN:
+                    remaining = BUY_COOLDOWN - time_since_last_buy
+                    print(f"On cooldown. Next buy check in {remaining:.0f} seconds.")
+                elif price <= TARGET_PRICE:
+                    print("\n🎯 Target hit! Placing buy order...")
+                    order_id = place_limit_buy(client, PRODUCT_ID, TARGET_PRICE)
+                    if order_id:
+                        last_buy_time = time.time()
+                        print(f"Buy completed. Cooldown started.\n")
         except Exception as exc:
             print(f"\n[ERROR] {exc}\n")
 
