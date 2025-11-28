@@ -7,10 +7,11 @@ from coinbase.rest import RESTClient
 from dotenv import load_dotenv
 
 # === CONFIGURE THESE ===
-TARGET_PRICE = 85_000.0  # Buy when BTC-USD <= this price
-USD_TO_SPEND = 50.0      # How many USD to spend once
+TARGET_PRICE = 90_000.0  # Buy when BTC-USD <= this price
+USD_TO_SPEND = 100.0      # How many USD to spend once
 POLL_INTERVAL = 10       # Seconds between price checks
 PRODUCT_ID = "BTC-USD"   # Trading pair
+BUY_COOLDOWN = 604800     # Seconds to wait after a buy before checking again (1 week)
 # ========================
 
 
@@ -79,18 +80,27 @@ def main() -> None:
 
     print(f"Watching {PRODUCT_ID}...")
     print(f"Target price: <= {TARGET_PRICE:.2f} USD")
-    print(f"Will spend  : {USD_TO_SPEND:.2f} USD one time\n")
+    print(f"Will spend  : {USD_TO_SPEND:.2f} USD per buy")
+    print(f"Buy cooldown: {BUY_COOLDOWN} seconds\n")
+
+    last_buy_time = 0
 
     while True:
         try:
             price = get_current_price(client, PRODUCT_ID)
             print(f"Current price: {price:.2f} USD")
 
-            if price <= TARGET_PRICE:
+            time_since_last_buy = time.time() - last_buy_time
+            if time_since_last_buy < BUY_COOLDOWN:
+                remaining = BUY_COOLDOWN - time_since_last_buy
+                print(f"On cooldown. Next buy check in {remaining:.0f} seconds.")
+            elif price <= TARGET_PRICE:
                 print("\n🎯 Target hit! Placing buy order...")
-                place_limit_buy(client, PRODUCT_ID, TARGET_PRICE)
-                break  # stop after one buy
-        except Exception as exc:  # noqa: BLE001 - surface any issues clearly to the user
+                order_id = place_limit_buy(client, PRODUCT_ID, TARGET_PRICE)
+                if order_id:
+                    last_buy_time = time.time()
+                    print(f"Buy completed. Cooldown started.\n")
+        except Exception as exc:
             print(f"\n[ERROR] {exc}\n")
 
         time.sleep(POLL_INTERVAL)
