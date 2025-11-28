@@ -26,3 +26,7 @@ python btc_bot.py
 ```
 
 The script will poll `BTC-USD` every `POLL_INTERVAL` seconds. When the current price is at or below `TARGET_PRICE`, it submits a Good-Til-Canceled limit buy sized to spend approximately `USD_TO_SPEND`, logs the raw response, and exits.
+
+## What funds are used?
+
+Trades are submitted through Coinbase Advanced Trade using the API key you provide. Orders can only draw from the balances and permissions of that Coinbase account (for example, your USD balance or USDC). The bot itself has no ability to initiate transfers from a linked bank account.
