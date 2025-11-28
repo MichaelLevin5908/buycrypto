@@ -37,8 +37,8 @@ def get_client() -> RESTClient:
         except Exception as e:
             raise RuntimeError(f"Cannot read JSON file {api_json_path}: {e}")
 
-        api_key = api_key or jd.get("id") or jd.get("key_id") or jd.get("key")
-        priv = jd.get("privateKey") or jd.get("private_key") or jd.get("privateKeyPem")
+        api_key = jd.get("name")
+        priv = jd.get("privateKey")
         if not priv:
             raise RuntimeError("No privateKey found in provided JSON.")
 
