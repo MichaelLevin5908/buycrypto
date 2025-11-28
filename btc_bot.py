@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import uuid
 from typing import Optional
@@ -16,22 +17,50 @@ BUY_COOLDOWN = 604800     # Seconds to wait after a buy before checking again (1
 
 
 def get_client() -> RESTClient:
-    """Create a REST client using API credentials from environment variables.
-
-    Exits early with a clear error if the variables are missing to avoid
-    placing unintended orders.
+    """Create REST client. Accepts:
+      - COINBASE_API_SECRET (inline PEM)
+      - COINBASE_API_SECRET_PATH (path to PEM file)
+      - OR COINBASE_API_JSON_PATH (Coinbase JSON with id + privateKey)
     """
-
-    # Allow users to keep secrets in a .env file for local development.
     load_dotenv()
 
     api_key = os.environ.get("COINBASE_API_KEY")
     api_secret = os.environ.get("COINBASE_API_SECRET")
+    api_secret_path = os.environ.get("COINBASE_API_SECRET_PATH")
+    api_json_path = os.environ.get("COINBASE_API_JSON_PATH")
+
+    # If JSON file provided, load id and privateKey
+    if api_json_path:
+        try:
+            with open(os.path.expanduser(api_json_path), "r") as f:
+                jd = json.load(f)
+        except Exception as e:
+            raise RuntimeError(f"Cannot read JSON file {api_json_path}: {e}")
+
+        api_key = api_key or jd.get("id") or jd.get("key_id") or jd.get("key")
+        priv = jd.get("privateKey") or jd.get("private_key") or jd.get("privateKeyPem")
+        if not priv:
+            raise RuntimeError("No privateKey found in provided JSON.")
+
+        # If JSON already contains PEM text, use it; otherwise format base64 into PEM block
+        if "-----BEGIN" in priv:
+            api_secret = priv
+        else:
+            b64 = priv.strip()
+            lines = [b64[i:i+64] for i in range(0, len(b64), 64)]
+            pem = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END PRIVATE KEY-----\n"
+            api_secret = pem
+
+    # If path to PEM provided, read it
+    if api_secret_path and not api_secret:
+        try:
+            with open(os.path.expanduser(api_secret_path), "r") as f:
+                api_secret = f.read()
+        except Exception as e:
+            raise RuntimeError(f"Unable to read PEM at {api_secret_path}: {e}")
 
     if not api_key or not api_secret:
-        raise RuntimeError(
-            "Missing COINBASE_API_KEY or COINBASE_API_SECRET environment variables."
-        )
+        raise RuntimeError("Missing COINBASE_API_KEY and/or COINBASE_API_SECRET (or provide COINBASE_API_SECRET_PATH or COINBASE_API_JSON_PATH).")
 
     return RESTClient(api_key=api_key, api_secret=api_secret)
 
