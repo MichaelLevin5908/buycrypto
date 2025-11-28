@@ -17,39 +17,6 @@ PRODUCT_ID = "BTC-USD"   # Trading pair
 BUY_COOLDOWN = 604800     # Seconds to wait after a buy before checking again (1 week)
 # ========================
 
-
-def load_credentials_from_json(path: str) -> tuple[str, str]:
-    """Load an API key and secret from a Coinbase JSON file."""
-
-    json_path = Path(path).expanduser()
-    if not json_path.exists():
-        raise RuntimeError(f"COINBASE_API_JSON_PATH does not exist: {json_path}")
-
-    try:
-        raw = json_path.read_text(encoding="utf-8")
-        data = json.loads(raw)
-    except Exception as exc:  # pragma: no cover - defensive parsing
-        raise RuntimeError(
-            f"Failed to read or parse JSON credentials at {json_path}: {exc}"
-        ) from exc
-
-    try:
-        api_key = data["id"]
-        api_secret = data["privateKey"]
-    except KeyError as exc:
-        raise RuntimeError(
-            "JSON credentials must contain 'id' and 'privateKey' fields from Coinbase."
-        ) from exc
-
-    api_key = str(api_key).strip()
-    api_secret = str(api_secret).replace("\\n", "\n").strip()
-
-    if not api_key or not api_secret:
-        raise RuntimeError("Empty 'id' or 'privateKey' in JSON credentials.")
-
-    return api_key, api_secret
-
-
 def get_client() -> RESTClient:
     """Create REST client. Accepts:
       - COINBASE_API_SECRET (inline PEM)
@@ -81,14 +48,6 @@ def get_client() -> RESTClient:
             lines = [b64[i:i+64] for i in range(0, len(b64), 64)]
             pem = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END PRIVATE KEY-----\n"
             api_secret = pem
-
-    # If path to PEM provided, read it
-    if api_secret_path and not api_secret:
-        try:
-            with open(os.path.expanduser(api_secret_path), "r") as f:
-                api_secret = f.read()
-        except Exception as e:
-            raise RuntimeError(f"Unable to read PEM at {api_secret_path}: {e}")
 
     if not api_key or not api_secret:
         raise RuntimeError("Missing COINBASE_API_KEY and/or COINBASE_API_SECRET (or provide COINBASE_API_SECRET_PATH or COINBASE_API_JSON_PATH).")
