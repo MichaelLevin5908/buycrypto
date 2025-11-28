@@ -24,9 +24,6 @@ def get_client() -> RESTClient:
     """
     load_dotenv()
 
-    api_key = os.environ.get("COINBASE_API_KEY")
-    api_secret = os.environ.get("COINBASE_API_SECRET")
-    api_secret_path = os.environ.get("COINBASE_API_SECRET_PATH")
     api_json_path = os.environ.get("COINBASE_API_JSON_PATH")
 
     # If JSON file provided, load id and privateKey
