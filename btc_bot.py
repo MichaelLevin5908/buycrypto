@@ -64,11 +64,21 @@ def get_current_price(client: RESTClient, product_id: str) -> float:
 
 
 def get_balance_by_currency(client: RESTClient, currency: str) -> float:
-    """Return available balance for a given currency (e.g., 'USD' or 'USDC')."""
+    """Return available balance for a given currency in the TRADING account (not consumer)."""
     try:
         resp = client.get_accounts()
     except Exception:
         return 0.0
+    for acct in resp.get("accounts", []):
+        if acct.get("currency") == currency:
+            platform = acct.get("platform", "")
+            if "CONSUMER" in platform:
+                continue 
+            try:
+                return float(acct["available_balance"]["value"])
+            except Exception:
+                return 0.0
+    
     for acct in resp.get("accounts", []):
         if acct.get("currency") == currency:
             try:
