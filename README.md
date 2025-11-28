@@ -15,12 +15,6 @@ A minimal Coinbase Advanced Trade bot that watches the BTC-USD price and places 
      export COINBASE_API_JSON_PATH="/path/to/cdp_api_key.json"  # contains id + privateKey
      ```
 
-   * Or set the raw values (ensure the private key newlines are preserved or escaped as \n):
-     ```bash
-     export COINBASE_API_KEY="organizations/{org_id}/apiKeys/{key_id}"
-     export COINBASE_API_SECRET="-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----\n"
-     ```
-
    You can alternatively create a `.env` file with the same variable names for local development.
 
 ## Usage
