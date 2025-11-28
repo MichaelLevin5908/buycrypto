@@ -30,3 +30,13 @@ The script will poll `BTC-USD` every `POLL_INTERVAL` seconds. When the current p
 ## What funds are used?
 
 Trades are submitted through Coinbase Advanced Trade using the API key you provide. Orders can only draw from the balances and permissions of that Coinbase account (for example, your USD balance or USDC). The bot itself has no ability to initiate transfers from a linked bank account.
+
+## Accounts and balances
+
+You can use the same API credentials to inspect your Coinbase Advanced Trade accounts. A small helper script is included to show the balances your API key can access:
+
+```bash
+python tools/show_balances.py
+```
+
+The script will try common balance/account endpoints on the `RESTClient` (such as `list_accounts`) and pretty-print the first successful response. If none of the known methods exist for your installed `coinbase` SDK version, it will list the available client attributes so you can pick the right method for your environment.
