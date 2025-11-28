@@ -1,2 +1,4 @@
 .env
 cdp_api_key.json
+__pycache__/
+*.pyc
